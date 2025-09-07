@@ -252,6 +252,16 @@ class Character extends FlxSprite {
 		}
 
 		override function update(elapsed:Float) {
+			if (isAnimateAtlas)
+				atlas.update(elapsed);
+
+			if (debugMode
+				|| (!isAnimateAtlas && animation.curAnim == null)
+				|| (isAnimateAtlas && (atlas.anim.curInstance == null || atlas.anim.curSymbol == null))) {
+				super.update(elapsed);
+				return;
+			}
+
 			#if FLX_ANIMATE
 			if (isSWF && swfAnim != null) {
 				// keep position/flip/scale in sync in case game changes them at runtime
@@ -271,15 +281,6 @@ class Character extends FlxSprite {
 				swfAnim.update(elapsed);
 			}
 			#end
-			if (isAnimateAtlas)
-				atlas.update(elapsed);
-
-			if (debugMode
-				|| (!isAnimateAtlas && animation.curAnim == null)
-				|| (isAnimateAtlas && (atlas.anim.curInstance == null || atlas.anim.curSymbol == null))) {
-				super.update(elapsed);
-				return;
-			}
 
 			if (heyTimer > 0) {
 				var rate:Float = (PlayState.instance != null ? PlayState.instance.playbackRate : 1.0);
