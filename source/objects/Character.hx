@@ -161,22 +161,6 @@ class Character extends FlxSprite {
 		scale.set(1, 1);
 		updateHitbox();
 
-		if (!isAnimateAtlas) {
-			frames = Paths.getMultiAtlas(json.image.split(','));
-		}
-		#if flxanimate
-		else {
-			atlas = new FlxAnimate();
-			atlas.showPivot = false;
-			try {
-				Paths.loadAnimateAtlas(atlas, json.image);
-			} catch (e:haxe.Exception) {
-				FlxG.log.warn('Could not load atlas ${json.image}: $e');
-				trace(e.stack);
-			}
-		}
-		#end
-
 		swfRenderScale = (json.swfRenderScale != null) ? json.swfRenderScale : 1.0;
 		if (_renderType == "swf") {
 			isSWF = true;
@@ -186,6 +170,22 @@ class Character extends FlxSprite {
 			#else
 			// If compiled without flxanimate, fall back to PNG/Sparrow (existing code path)
 			isSWF = false;
+			}
+			#end
+
+			if (!isAnimateAtlas) {
+				frames = Paths.getMultiAtlas(json.image.split(','));
+			}
+			#if flxanimate
+			else {
+				atlas = new FlxAnimate();
+				atlas.showPivot = false;
+				try {
+					Paths.loadAnimateAtlas(atlas, json.image);
+				} catch (e:haxe.Exception) {
+					FlxG.log.warn('Could not load atlas ${json.image}: $e');
+					trace(e.stack);
+				}
 			}
 			#end
 
