@@ -91,99 +91,101 @@ class Character extends FlxSprite {
 	// READ SWF fields
 	var _renderType = Std.string(json.renderType);
 
-	swfRenderScale = (json.swfRenderScale != null) ? json.swfRenderScale : 1.0;
-	if (_renderType == "swf") {
-		isSWF = true;
-		antialiasing = !(json.no_antialiasing == true);
-		#if FLX_ANIMATE
-		loadSWF(json);
+	public var isSWF:Bool = false;
+	public var swfRenderScale:Float = 1.0;
+
+	public function new(x:Float, y:Float, ?character:String = 'bf', ?isPlayer:Bool = false) {
+		super(x, y);
+
+		animation = new PsychAnimationController(this);
+
+		animOffsets = new Map<String, Array<Dynamic>>();
+		this.isPlayer = isPlayer;
+		changeCharacter(character);
+
+		switch (curCharacter) {
+			case 'pico-speaker':
+				skipDance = true;
+				loadMappedAnims();
+				playAnim("shoot1");
+			case 'pico-blazin', 'darnell-blazin':
+				skipDance = true;
+		}
+	}
+
+	public function changeCharacter(character:String) {
+		animationsArray = [];
+		animOffsets = [];
+		curCharacter = character;
+		var characterPath:String = 'characters/$character.json';
+
+		var path:String = Paths.getPath(characterPath, TEXT);
+		#if MODS_ALLOWED
+		if (!FileSystem.exists(path))
 		#else
-		// If compiled without flxanimate, fall back to PNG/Sparrow (existing code path)
-		isSWF = false;
+		if (!Assets.exists(path))
 		#end
-		public var isSWF:Bool = false;
-		public var swfRenderScale:Float = 1.0;
-
-		public function new(x:Float, y:Float, ?character:String = 'bf', ?isPlayer:Bool = false) {
-			super(x, y);
-
-			animation = new PsychAnimationController(this);
-
-			animOffsets = new Map<String, Array<Dynamic>>();
-			this.isPlayer = isPlayer;
-			changeCharacter(character);
-
-			switch (curCharacter) {
-				case 'pico-speaker':
-					skipDance = true;
-					loadMappedAnims();
-					playAnim("shoot1");
-				case 'pico-blazin', 'darnell-blazin':
-					skipDance = true;
-			}
+		{
+			path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER +
+				'.json'); // If a character couldn't be found, change him to BF just to prevent a crash
+			missingCharacter = true;
+			missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
+			missingText.alignment = CENTER;
 		}
 
-		public function changeCharacter(character:String) {
-			animationsArray = [];
-			animOffsets = [];
-			curCharacter = character;
-			var characterPath:String = 'characters/$character.json';
-
-			var path:String = Paths.getPath(characterPath, TEXT);
+		try {
 			#if MODS_ALLOWED
-			if (!FileSystem.exists(path))
+			loadCharacterFile(Json.parse(File.getContent(path)));
 			#else
-			if (!Assets.exists(path))
+			loadCharacterFile(Json.parse(Assets.getText(path)));
 			#end
-			{
-				path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER +
-					'.json'); // If a character couldn't be found, change him to BF just to prevent a crash
-				missingCharacter = true;
-				missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
-				missingText.alignment = CENTER;
-			}
-
-			try {
-				#if MODS_ALLOWED
-				loadCharacterFile(Json.parse(File.getContent(path)));
-				#else
-				loadCharacterFile(Json.parse(Assets.getText(path)));
-				#end
-			} catch (e:Dynamic) {
-				trace('Error loading character file of "$character": $e');
-			}
-
-			skipDance = false;
-			hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
-			recalculateDanceIdle();
-			dance();
+		} catch (e:Dynamic) {
+			trace('Error loading character file of "$character": $e');
 		}
 
-		public function loadCharacterFile(json:Dynamic) {
-			isAnimateAtlas = false;
+		skipDance = false;
+		hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
+		recalculateDanceIdle();
+		dance();
+	}
 
-			#if flxanimate
-			var animToFind:String = Paths.getPath('images/' + json.image + '/Animation.json', TEXT);
-			if (#if MODS_ALLOWED FileSystem.exists(animToFind) || #end Assets.exists(animToFind))
-				isAnimateAtlas = true;
-			#end
+	public function loadCharacterFile(json:Dynamic) {
+		isAnimateAtlas = false;
 
-			scale.set(1, 1);
-			updateHitbox();
+		#if flxanimate
+		var animToFind:String = Paths.getPath('images/' + json.image + '/Animation.json', TEXT);
+		if (#if MODS_ALLOWED FileSystem.exists(animToFind) || #end Assets.exists(animToFind))
+			isAnimateAtlas = true;
+		#end
 
-			if (!isAnimateAtlas) {
-				frames = Paths.getMultiAtlas(json.image.split(','));
+		scale.set(1, 1);
+		updateHitbox();
+
+		if (!isAnimateAtlas) {
+			frames = Paths.getMultiAtlas(json.image.split(','));
+		}
+		#if flxanimate
+		else {
+			atlas = new FlxAnimate();
+			atlas.showPivot = false;
+			try {
+				Paths.loadAnimateAtlas(atlas, json.image);
+			} catch (e:haxe.Exception) {
+				FlxG.log.warn('Could not load atlas ${json.image}: $e');
+				trace(e.stack);
 			}
-			#if flxanimate
-			else {
-				atlas = new FlxAnimate();
-				atlas.showPivot = false;
-				try {
-					Paths.loadAnimateAtlas(atlas, json.image);
-				} catch (e:haxe.Exception) {
-					FlxG.log.warn('Could not load atlas ${json.image}: $e');
-					trace(e.stack);
-				}
+		}
+		#end
+
+		swfRenderScale = (json.swfRenderScale != null) ? json.swfRenderScale : 1.0;
+		if (_renderType == "swf") {
+			isSWF = true;
+			antialiasing = !(json.no_antialiasing == true);
+			#if FLX_ANIMATE
+			loadSWF(json);
+			#else
+			// If compiled without flxanimate, fall back to PNG/Sparrow (existing code path)
+			isSWF = false;
 			}
 			#end
 
